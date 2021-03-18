@@ -35,6 +35,10 @@ func (s *Session) Get(key interface{}) interface{} {
 	return nil
 }
 
+func (s *Session) Send(msg driver.Message) (err error) {
+	return nil
+}
+
 func (s *Session) PullMessage(ctx context.Context) (err error) {
 	reader := bufio.NewReader(s.Conn)
 
@@ -75,7 +79,7 @@ func (s *Session) PushMessage(ctx context.Context) (err error) {
 	}
 }
 
-func NewSession(ctx context.Context, c net.Conn) (session *Session) {
+func NewSession(ctx context.Context, c net.Conn) (session driver.Session) {
 	s := &Session{Conn: c}
 
 	s.OnMessage = func(message driver.Message) (err error) {
