@@ -50,6 +50,10 @@ func (m *Message) Version() uint8 {
 	return m.version
 }
 
+func (m *Message) Length() int32 {
+	return int32(len(m.payload)) + HEADER_LENGTH
+}
+
 func NewMessage(version uint8, protocol uint16, payload []byte) driver.Message {
 	return &Message{version, protocol, payload}
 }
@@ -76,11 +80,9 @@ func ReadMessage(reader *bufio.Reader) (driver.Message, error) {
 		return nil, err
 	}
 
-	payload := buf[HEADER_LENGTH:]
-
-	if code != crc32.ChecksumIEEE(payload) {
+	if code != crc32.ChecksumIEEE(buf[HEADER_LENGTH:]) {
 		return nil, errors.New(fmt.Sprintf("protocol %v code uncomplete", protocol))
 	}
 
-	return NewMessage(version, protocol, payload), nil
+	return NewMessage(version, protocol, buf[HEADER_LENGTH:]), nil
 }
