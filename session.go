@@ -7,6 +7,7 @@ import (
 	"net"
 	"reflect"
 	"strings"
+	"time"
 
 	driver "github.com/vimcoders/go-driver"
 )
@@ -17,6 +18,8 @@ type Session struct {
 	net.Conn
 
 	OnMessage func(message driver.Message) (err error)
+
+	pushMessageQune chan driver.Message
 }
 
 func (s *Session) SessionID() int64 {
@@ -70,17 +73,44 @@ func (s *Session) PullMessage(ctx context.Context) (err error) {
 }
 
 func (s *Session) PushMessage(ctx context.Context) (err error) {
+	defaultBufferSize := 1024
+
+	buffer := NewBuffer(defaultBufferSize)
+
 	for {
 		select {
 		case <-ctx.Done():
 			return errors.New("shutdown")
 		default:
+			pkg, ok := <-s.pushMessageQune
+
+			if !ok || pkg == nil {
+				return errors.New("shut down!")
+			}
+
+			header, payload := pkg.Header(), pkg.Payload()
+
+			buf := buffer.Take(len(header) + len(payload))
+
+			copy(buf, header)
+			copy(buf[len(header):], payload)
+
+			if err := s.Conn.SetWriteDeadline(time.Now().Add(time.Second)); err != nil {
+				return err
+			}
+
+			if _, err := s.Conn.Write(buf); err != nil {
+				return err
+			}
 		}
 	}
 }
 
 func NewSession(ctx context.Context, c net.Conn) (session driver.Session) {
-	s := &Session{Conn: c}
+	s := &Session{
+		Conn:            c,
+		pushMessageQune: make(chan driver.Message),
+	}
 
 	s.OnMessage = func(message driver.Message) (err error) {
 		var methodName string
@@ -107,4 +137,22 @@ func NewSession(ctx context.Context, c net.Conn) (session driver.Session) {
 	go s.PushMessage(ctx)
 
 	return s
+}
+
+type buffer struct {
+	buf []byte
+}
+
+func (b *buffer) Take(n int) []byte {
+	if n < len(b.buf) {
+		return b.buf[:n]
+	}
+
+	return make([]byte, n)
+}
+
+func NewBuffer(n int) *buffer {
+	return &buffer{
+		buf: make([]byte, n),
+	}
 }
