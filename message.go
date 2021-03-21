@@ -3,9 +3,7 @@ package lib
 import (
 	"bufio"
 	"errors"
-	"fmt"
 	"hash/crc32"
-	"io"
 
 	"github.com/vimcoders/go-driver"
 )
@@ -55,51 +53,28 @@ func (m *Message) Length() int32 {
 	return int32(len(m.payload)) + HEADER_LENGTH
 }
 
-func NewMessage(version uint8, protocol uint16, payload []byte) driver.Message {
-	return &Message{version, protocol, payload}
-}
-
-type Reader struct {
-	reader *bufio.Reader
-}
-
-func (r *Reader) Read() (driver.Message, error) {
-	header, err := r.reader.Peek(HEADER_LENGTH)
+func NewMessage(reader *bufio.Reader) (driver.Message, error) {
+	header, err := reader.Peek(HEADER_LENGTH)
 
 	if err != nil {
 		return nil, err
 	}
 
-	version := header[0]
 	length := uint32(uint32(header[1])<<16 | uint32(header[2])<<8 | uint32(header[3]))
-	protocol := uint16(header[4])<<8 | uint16(header[5])
-	code := uint32(header[6])<<24 | uint32(header[7])<<16 | uint32(header[8])<<8 | uint32(header[9])
 
-	buf, err := r.reader.Peek(int(length))
-
-	if err != nil {
-		return nil, err
-	}
+	buf, err := reader.Peek(int(length))
 
 	if len(buf) < HEADER_LENGTH {
-		return nil, err
+		return nil, nil
 	}
+
+	version := buf[0]
+	protocol := uint16(buf[4])<<8 | uint16(buf[5])
+	code := uint32(buf[6])<<24 | uint32(buf[7])<<16 | uint32(buf[8])<<8 | uint32(buf[9])
 
 	if code != crc32.ChecksumIEEE(buf[HEADER_LENGTH:]) {
-		return nil, errors.New(fmt.Sprintf("protocol %v code uncomplete", protocol))
+		return nil, errors.New("code !")
 	}
 
-	return NewMessage(version, protocol, buf[HEADER_LENGTH:]), nil
-}
-
-func (r *Reader) Discard(msg driver.Message) error {
-	if _, err := r.reader.Discard(len(msg.Payload()) + HEADER_LENGTH); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func NewReader(r io.Reader) *Reader {
-	return &Reader{bufio.NewReader(r)}
+	return &Message{version, protocol, buf[HEADER_LENGTH:]}, nil
 }

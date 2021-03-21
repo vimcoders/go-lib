@@ -1,6 +1,7 @@
 package lib
 
 import (
+	"bufio"
 	"context"
 	"errors"
 	"net"
@@ -91,7 +92,7 @@ func (s *Session) Pull(ctx context.Context) (err error) {
 		}
 	}()
 
-	reader := NewReader(s.Conn)
+	reader := bufio.NewReader(s.Conn)
 
 	for {
 		select {
@@ -99,7 +100,7 @@ func (s *Session) Pull(ctx context.Context) (err error) {
 		default:
 		}
 
-		pkg, err := reader.Read()
+		pkg, err := NewMessage(reader)
 
 		if err != nil {
 			return err
@@ -109,7 +110,7 @@ func (s *Session) Pull(ctx context.Context) (err error) {
 			return err
 		}
 
-		if err := reader.Discard(pkg); err != nil {
+		if _, err := reader.Discard(int(pkg.Length())); err != nil {
 			return err
 		}
 	}
