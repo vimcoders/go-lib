@@ -54,6 +54,8 @@ func (s *Session) Push(ctx context.Context) (err error) {
 		close(s.pushMessageQuene)
 	}()
 
+	buffer := NewBuffer()
+
 	for {
 		select {
 		case <-ctx.Done():
@@ -70,13 +72,25 @@ func (s *Session) Push(ctx context.Context) (err error) {
 			return err
 		}
 
-		if _, err := s.Conn.Write(pkg.Payload()); err != nil {
+		header, payload := pkg.Header(), pkg.Payload()
+
+		buf := buffer.Take(len(header) + len(payload))
+		copy(buf, header)
+		copy(buf[HEADER_LENGTH:], payload)
+
+		if _, err := s.Conn.Write(buf); err != nil {
 			return err
 		}
 	}
 }
 
 func (s *Session) Pull(ctx context.Context) (err error) {
+	defer func() {
+		if err := recover(); err != nil {
+			//TODO::
+		}
+	}()
+
 	reader := NewReader(s.Conn)
 
 	for {
@@ -102,7 +116,7 @@ func (s *Session) Pull(ctx context.Context) (err error) {
 }
 
 func NewSession(ctx context.Context, c net.Conn) (session driver.Session) {
-	s := &Session{}
+	s := &Session{Conn: c}
 
 	s.OnMessage = func(message driver.Message) (err error) {
 		//TODO::config
