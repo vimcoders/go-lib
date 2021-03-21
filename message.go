@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"hash/crc32"
+	"io"
 
 	"github.com/vimcoders/go-driver"
 )
@@ -58,8 +59,12 @@ func NewMessage(version uint8, protocol uint16, payload []byte) driver.Message {
 	return &Message{version, protocol, payload}
 }
 
-func ReadMessage(reader *bufio.Reader) (driver.Message, error) {
-	header, err := reader.Peek(HEADER_LENGTH)
+type Reader struct {
+	reader *bufio.Reader
+}
+
+func (r *Reader) Read() (driver.Message, error) {
+	header, err := r.reader.Peek(HEADER_LENGTH)
 
 	if err != nil {
 		return nil, err
@@ -70,7 +75,7 @@ func ReadMessage(reader *bufio.Reader) (driver.Message, error) {
 	protocol := uint16(header[4])<<8 | uint16(header[5])
 	code := uint32(header[6])<<24 | uint32(header[7])<<16 | uint32(header[8])<<8 | uint32(header[9])
 
-	buf, err := reader.Peek(int(length))
+	buf, err := r.reader.Peek(int(length))
 
 	if err != nil {
 		return nil, err
@@ -85,4 +90,16 @@ func ReadMessage(reader *bufio.Reader) (driver.Message, error) {
 	}
 
 	return NewMessage(version, protocol, buf[HEADER_LENGTH:]), nil
+}
+
+func (r *Reader) Discard(msg driver.Message) error {
+	if _, err := r.reader.Discard(len(msg.Payload()) + HEADER_LENGTH); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func NewReader(r io.Reader) *Reader {
+	return &Reader{bufio.NewReader(r)}
 }
