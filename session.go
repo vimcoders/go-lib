@@ -77,7 +77,7 @@ func (s *Session) Push(ctx context.Context) (err error) {
 
 		buf := buffer.Take(len(header) + len(payload))
 		copy(buf, header)
-		copy(buf[HEADER_LENGTH:], payload)
+		copy(buf[len(header):], payload)
 
 		if _, err := s.Conn.Write(buf); err != nil {
 			return err
@@ -100,17 +100,23 @@ func (s *Session) Pull(ctx context.Context) (err error) {
 		default:
 		}
 
-		pkg, err := NewMessage(reader)
+		header, err := reader.Peek(HeaderLength)
 
 		if err != nil {
 			return err
 		}
 
-		if err := s.OnMessage(pkg); err != nil {
+		buf, err := reader.Peek(int(uint32(uint32(header[1])<<16 | uint32(header[2])<<8 | uint32(header[3]))))
+
+		if err != nil {
 			return err
 		}
 
-		if _, err := reader.Discard(int(pkg.Length())); err != nil {
+		if err := s.OnMessage(NewMessage(buf[len(header):])); err != nil {
+			return err
+		}
+
+		if _, err := reader.Discard(len(buf)); err != nil {
 			return err
 		}
 	}
