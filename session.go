@@ -4,8 +4,10 @@ import (
 	"bufio"
 	"context"
 	"errors"
+	"fmt"
 	"net"
 	"reflect"
+	"runtime/debug"
 	"strings"
 	"time"
 
@@ -52,6 +54,8 @@ func (s *Session) Push(ctx context.Context) (err error) {
 		if err := recover(); err != nil {
 		}
 
+		fmt.Println(err, "push")
+
 		close(s.pushMessageQuene)
 	}()
 
@@ -88,8 +92,11 @@ func (s *Session) Push(ctx context.Context) (err error) {
 func (s *Session) Pull(ctx context.Context) (err error) {
 	defer func() {
 		if err := recover(); err != nil {
+			fmt.Println(err)
 			//TODO::
 		}
+
+		fmt.Println(err, "pull", string(debug.Stack()))
 	}()
 
 	reader := bufio.NewReader(s.Conn)
@@ -106,13 +113,15 @@ func (s *Session) Pull(ctx context.Context) (err error) {
 			return err
 		}
 
-		buf, err := reader.Peek(int(uint32(uint32(header[1])<<16 | uint32(header[2])<<8 | uint32(header[3]))))
+		length := int(uint32(uint32(header[1])<<16 | uint32(header[2])<<8 | uint32(header[3])))
+
+		buf, err := reader.Peek(length)
 
 		if err != nil {
 			return err
 		}
 
-		if err := s.OnMessage(NewMessage(buf[len(header):])); err != nil {
+		if err := s.OnMessage(NewMessage(buf[:])); err != nil {
 			return err
 		}
 
@@ -123,9 +132,11 @@ func (s *Session) Pull(ctx context.Context) (err error) {
 }
 
 func NewSession(ctx context.Context, c net.Conn) (session driver.Session) {
-	s := &Session{Conn: c}
+	s := &Session{Conn: c, pushMessageQuene: make(chan driver.Message)}
 
 	s.OnMessage = func(message driver.Message) (err error) {
+		fmt.Println(message)
+
 		//TODO::config
 		var methodName string
 
@@ -143,7 +154,7 @@ func NewSession(ctx context.Context, c net.Conn) (session driver.Session) {
 			return nil
 		}
 
-		return errors.New("unknow")
+		return nil
 	}
 
 	go s.Pull(ctx)
