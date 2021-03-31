@@ -6,9 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
-	"reflect"
 	"runtime/debug"
-	"strings"
 	"time"
 
 	driver "github.com/vimcoders/go-driver"
@@ -121,7 +119,7 @@ func (s *Session) Pull(ctx context.Context) (err error) {
 			return err
 		}
 
-		if err := s.OnMessage(NewMessage(buf[:])); err != nil {
+		if err := s.OnMessage(NewMessage(buf[len(header):])); err != nil {
 			return err
 		}
 
@@ -135,24 +133,24 @@ func NewSession(ctx context.Context, c net.Conn) (session driver.Session) {
 	s := &Session{Conn: c, pushMessageQuene: make(chan driver.Message)}
 
 	s.OnMessage = func(message driver.Message) (err error) {
-		fmt.Println(message)
+		s.Write(message)
 
-		//TODO::config
-		var methodName string
+		////TODO::config
+		//var methodName string
 
-		t, _ := reflect.TypeOf(s), reflect.ValueOf(s)
-		//t, v := reflect.TypeOf(s), reflect.ValueOf(s)
+		//t, _ := reflect.TypeOf(s), reflect.ValueOf(s)
+		////t, v := reflect.TypeOf(s), reflect.ValueOf(s)
 
-		for i := 0; i < t.NumMethod(); i++ {
-			if strings.ToLower(t.Method(i).Name) != methodName {
-				continue
-			}
+		//for i := 0; i < t.NumMethod(); i++ {
+		//	if strings.ToLower(t.Method(i).Name) != methodName {
+		//		continue
+		//	}
 
-			//TODO::
-			//v.Method(i).Call([]reflect.Value{arg1, arg2})
+		//	//TODO::
+		//	//v.Method(i).Call([]reflect.Value{arg1, arg2})
 
-			return nil
-		}
+		//	return nil
+		//}
 
 		return nil
 	}
