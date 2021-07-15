@@ -5,6 +5,7 @@ import (
 	"io"
 	"log"
 	"log/syslog"
+	"runtime/debug"
 
 	driver "github.com/vimcoders/go-driver"
 )
@@ -32,6 +33,8 @@ func (log *Syslogger) Warning(format string, v ...interface{}) {
 func (log *Syslogger) Error(format string, v ...interface{}) {
 	log.logger.Output(2, fmt.Sprintf("[ERROR] %v", fmt.Sprintf(format, v...)))
 	fmt.Println("[Error] ", "\033[31m", fmt.Sprintf(format, v...), "\033[0m")
+	fmt.Println("Stack:")
+	fmt.Println("\033[31m", string(debug.Stack()), "\033[0m")
 }
 
 func NewSyslogger() (driver.Logger, error) {
