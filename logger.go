@@ -2,50 +2,48 @@ package lib
 
 import (
 	"fmt"
-	"io"
 	"log"
-	"log/syslog"
+	"os"
 	"runtime/debug"
 
 	driver "github.com/vimcoders/go-driver"
 )
 
+const (
+	color_black = uint8(iota + 90)
+	color_red
+	color_green
+	color_yellow
+	color_blue
+	color_magenta
+	color_cyan
+	color_white
+)
+
 type Syslogger struct {
-	io.Closer
-	logger *log.Logger
+	*log.Logger
 }
 
 func (log *Syslogger) Debug(format string, v ...interface{}) {
-	log.logger.Output(2, fmt.Sprintf("[DEBUG] %v", fmt.Sprintf(format, v...)))
-	fmt.Println("[DEBUG] ", fmt.Sprintf(format, v...))
+	log.Output(2, fmt.Sprintf("\x1b[%dm[Debug] %s\x1b[0m", color_white, fmt.Sprintf(format, v...)))
 }
 
 func (log *Syslogger) Info(format string, v ...interface{}) {
-	log.logger.Output(2, fmt.Sprintf("[INFO] %v", fmt.Sprintf(format, v...)))
-	fmt.Println("[INFO]", "\033[32m", fmt.Sprintf(format, v...), "\033[0m")
+	log.Output(2, fmt.Sprintf("\x1b[%dm[Info] %s\x1b[0m", color_green, fmt.Sprintf(format, v...)))
 }
 
 func (log *Syslogger) Warning(format string, v ...interface{}) {
-	log.logger.Output(2, fmt.Sprintf("[WARNING] %v", fmt.Sprintf(format, v...)))
-	fmt.Println("[WARNING] ", "\033[33m", fmt.Sprintf(format, v...), "\033[0m")
+	log.Output(2, fmt.Sprintf("\x1b[%dm[Warning] %s\x1b[0m", color_yellow, fmt.Sprintf(format, v...)))
 }
 
 func (log *Syslogger) Error(format string, v ...interface{}) {
-	log.logger.Output(2, fmt.Sprintf("[ERROR] %v", fmt.Sprintf(format, v...)))
-	fmt.Println("[Error] ", "\033[31m", fmt.Sprintf(format, v...), "\033[0m")
-	fmt.Println("Stack:")
-	fmt.Println("\033[31m", string(debug.Stack()), "\033[0m")
+	log.Output(2, fmt.Sprintf("\x1b[%dm[Error] %s\x0A%s\x1b[0m", color_red, fmt.Sprintf(format, v...), string(debug.Stack())))
+}
+
+func (log *Syslogger) Close() error {
+	return nil
 }
 
 func NewSyslogger() (driver.Logger, error) {
-	sysLog, err := syslog.New(syslog.LOG_NOTICE, "syslog")
-
-	if err != nil {
-		return nil, err
-	}
-
-	return &Syslogger{
-		logger: log.New(sysLog, "", log.Ldate|log.Ltime|log.Lshortfile),
-		Closer: sysLog,
-	}, nil
+	return &Syslogger{log.New(os.Stdout, "", log.Ldate|log.Ltime|log.Lshortfile)}, nil
 }
